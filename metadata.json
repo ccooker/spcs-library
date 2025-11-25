@@ -1,0 +1,5 @@
+{
+  "name": "Libris RFID LMS",
+  "description": "A comprehensive School Library Management System featuring User Management, Book/Item cataloging, RFID tag association, and Loan automation. Includes simulated backend logic for demonstration.",
+  "requestFramePermissions": []
+}

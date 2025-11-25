@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,8 +30,8 @@ const Login: React.FC = () => {
             <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 mb-4">
               <Library className="w-6 h-6" />
             </div>
-            <h1 className="text-2xl font-bold text-slate-800">Welcome Back</h1>
-            <p className="text-slate-500 mt-2 text-sm">Sign in to manage the library system</p>
+            <h1 className="text-2xl font-bold text-slate-800">LIBRIS Core</h1>
+            <p className="text-slate-500 mt-2 text-sm">Library Management System</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

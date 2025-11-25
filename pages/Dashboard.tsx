@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../services/storage';
-import { Book, Item, Loan, User } from '../types';
 import { BookOpen, Users, Clock, AlertTriangle } from 'lucide-react';
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: any; color: string }> = ({ title, value, icon: Icon, color }) => (
@@ -28,18 +27,24 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const loadStats = async () => {
-      const [books, items, loans, users] = await Promise.all([
-        db.getBooks(),
+      const [items, circulations, users] = await Promise.all([
         db.getItems(),
-        db.getLoans(),
+        db.getCirculations(),
         db.getUsers()
       ]);
 
-      const active = loans.filter(l => l.status === 'CURRENT' || l.status === 'OVERDUE');
-      const overdue = loans.filter(l => l.status === 'OVERDUE' || (l.status === 'CURRENT' && new Date(l.dueDate) < new Date()));
+      // Estimate "Books" as unique ISBNs or Titles
+      const uniqueBooks = new Set(items.map(i => i.isbn || i.title)).size;
+      
+      const active = circulations.filter(c => c.status === 'Checked Out');
+      const overdue = circulations.filter(c => {
+        if (c.status === 'Overdue') return true;
+        if (c.status === 'Checked Out' && new Date(c.dueDate) < new Date()) return true;
+        return false;
+      });
 
       setStats({
-        books: books.length,
+        books: uniqueBooks,
         items: items.length,
         activeLoans: active.length,
         overdueLoans: overdue.length,
@@ -55,7 +60,7 @@ const Dashboard: React.FC = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard 
-          title="Total Books (Titles)" 
+          title="Total Titles" 
           value={stats.books} 
           icon={BookOpen} 
           color="bg-blue-500" 
@@ -93,7 +98,7 @@ const Dashboard: React.FC = () => {
                 <span className="text-xs text-slate-500">Process return</span>
              </button>
              <button className="p-4 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-left transition-colors">
-                <span className="block font-medium text-slate-700">Add New Book</span>
+                <span className="block font-medium text-slate-700">Add New Item</span>
                 <span className="text-xs text-slate-500">Catalog entry</span>
              </button>
              <button className="p-4 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-left transition-colors">

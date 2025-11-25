@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../services/storage';
-import { Book, Item, ItemStatus, RFIDTag } from '../types';
-import { Barcode, Scan, Plus, Search, Tag, CheckCircle, XCircle } from 'lucide-react';
+import { Item } from '../types';
+import { Barcode, Scan, Plus, Tag, CheckCircle } from 'lucide-react';
 
 const Items: React.FC = () => {
   const [items, setItems] = useState<Item[]>([]);
-  const [books, setBooks] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
   
   // Link RFID Modal
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
@@ -18,14 +16,8 @@ const Items: React.FC = () => {
   }, []);
 
   const fetchData = async () => {
-    const [i, b] = await Promise.all([db.getItems(), db.getBooks()]);
+    const i = await db.getItems();
     setItems(i);
-    setBooks(b);
-    setLoading(false);
-  };
-
-  const getBookDetails = (bookId: string) => {
-    return books.find(b => b.id === bookId) || { title: 'Unknown', isbn: 'Unknown' };
   };
 
   const handleSimulateScan = () => {
@@ -41,7 +33,9 @@ const Items: React.FC = () => {
   const handleLinkRfid = async () => {
     if (!selectedItem || !rfidInput) return;
     try {
-        await db.linkRfidToItem(selectedItem.id, rfidInput);
+        // In types.ts/storage.ts, rfidTagId is on the item. We just update it.
+        const updatedItem = { ...selectedItem, rfidTagId: rfidInput };
+        await db.updateItem(updatedItem);
         setSelectedItem(null);
         setRfidInput('');
         fetchData(); // refresh list
@@ -50,12 +44,12 @@ const Items: React.FC = () => {
     }
   };
 
-  const statusColor = (status: ItemStatus) => {
+  const statusColor = (status: string) => {
       switch(status) {
-          case ItemStatus.AVAILABLE: return 'bg-green-100 text-green-800';
-          case ItemStatus.ON_LOAN: return 'bg-blue-100 text-blue-800';
-          case ItemStatus.LOST: return 'bg-red-100 text-red-800';
-          case ItemStatus.DAMAGED: return 'bg-amber-100 text-amber-800';
+          case 'Available': return 'bg-green-100 text-green-800';
+          case 'Checked Out': return 'bg-blue-100 text-blue-800';
+          case 'Lost': return 'bg-red-100 text-red-800';
+          case 'Damaged': return 'bg-amber-100 text-amber-800';
           default: return 'bg-slate-100 text-slate-800';
       }
   };
@@ -76,8 +70,8 @@ const Items: React.FC = () => {
             <table className="w-full text-left border-collapse">
             <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Physical Barcode</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Book Title</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Item ID</th>
+                    <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Title & ISBN</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">RFID Tag</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Status</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">Actions</th>
@@ -85,31 +79,30 @@ const Items: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
                 {items.map(item => {
-                    const book = getBookDetails(item.bookId);
                     return (
-                        <tr key={item.id} className="hover:bg-slate-50">
+                        <tr key={item.itemId} className="hover:bg-slate-50">
                             <td className="px-6 py-4">
                                 <div className="flex items-center gap-2 font-mono text-sm text-slate-700">
                                     <Barcode className="w-4 h-4 text-slate-400" />
-                                    {item.uniqueBarcode}
+                                    {item.itemId}
                                 </div>
                             </td>
                             <td className="px-6 py-4">
-                                <span className="font-medium text-slate-900 block">{book.title}</span>
-                                <span className="text-xs text-slate-500">ISBN: {book.isbn}</span>
+                                <span className="font-medium text-slate-900 block">{item.title}</span>
+                                <span className="text-xs text-slate-500">ISBN: {item.isbn}</span>
                             </td>
                             <td className="px-6 py-4">
                                 {item.rfidTagId ? (
                                     <span className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md w-fit">
-                                        <Tag className="w-3 h-3" /> Linked
+                                        <Tag className="w-3 h-3" /> {item.rfidTagId}
                                     </span>
                                 ) : (
                                     <span className="text-xs text-slate-400 italic">No Tag</span>
                                 )}
                             </td>
                             <td className="px-6 py-4">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor(item.status)}`}>
-                                    {item.status}
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor(item.currentStatus)}`}>
+                                    {item.currentStatus}
                                 </span>
                             </td>
                             <td className="px-6 py-4 text-right">
@@ -134,7 +127,7 @@ const Items: React.FC = () => {
                     <div className="p-6 border-b border-slate-100">
                         <h3 className="font-bold text-lg text-slate-800">Link RFID Tag</h3>
                         <p className="text-sm text-slate-500 mt-1">
-                            Scan a tag to link it to <span className="font-mono font-medium text-slate-700">{selectedItem.uniqueBarcode}</span>
+                            Scan a tag to link it to Item #{selectedItem.itemId}
                         </p>
                     </div>
                     
@@ -158,9 +151,6 @@ const Items: React.FC = () => {
                                     <Scan className={`w-4 h-4 ${simulatingScan ? 'animate-pulse' : ''}`} />
                                 </button>
                             </div>
-                            <p className="text-xs text-slate-400 mt-2">
-                                In a real deployment, the RFID reader acts as a keyboard input device.
-                            </p>
                         </div>
 
                         {selectedItem.rfidTagId && (

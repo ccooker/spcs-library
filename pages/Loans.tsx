@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { db } from '../services/storage';
-import { Item, User, Loan, ItemStatus, LoanStatus, Book } from '../types';
-import { ArrowLeftRight, Search, User as UserIcon, BookOpen, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Item, User } from '../types';
+import { ArrowLeftRight, User as UserIcon, BookOpen, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const Loans: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'checkout' | 'return'>('checkout');
@@ -10,7 +10,7 @@ const Loans: React.FC = () => {
   const [userIdInput, setUserIdInput] = useState('');
   const [itemInput, setItemInput] = useState('');
   const [foundUser, setFoundUser] = useState<User | null>(null);
-  const [foundItem, setFoundItem] = useState<{item: Item, book: Book} | null>(null);
+  const [foundItem, setFoundItem] = useState<Item | null>(null);
   const [checkoutMessage, setCheckoutMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
 
   // Return State
@@ -19,33 +19,27 @@ const Loans: React.FC = () => {
 
   const handleUserLookup = async () => {
     const users = await db.getUsers();
-    // Search by username or studentID
-    const user = users.find(u => u.username === userIdInput || u.studentId === userIdInput);
+    // Search by username or sisID
+    const user = users.find(u => u.username === userIdInput || u.sisId === userIdInput);
     if (user) setFoundUser(user);
     else setCheckoutMessage({ type: 'error', text: 'User not found' });
   };
 
   const handleItemLookup = async () => {
-    // Input could be Barcode OR RFID Tag value
-    const [items, tags, books] = await Promise.all([db.getItems(), db.getRFIDTags(), db.getBooks()]);
+    // Input could be Item ID or RFID Tag value
+    const items = await db.getItems();
     
-    // 1. Try barcode match
-    let item = items.find(i => i.uniqueBarcode === itemInput);
+    // 1. Try RFID match
+    let item = items.find(i => i.rfidTagId === itemInput);
     
-    // 2. Try RFID match
+    // 2. Try ID match (fallback)
     if (!item) {
-        const tag = tags.find(t => t.tagValue === itemInput);
-        if (tag && tag.itemId) {
-            item = items.find(i => i.id === tag.itemId);
-        }
+       item = items.find(i => i.itemId.toString() === itemInput);
     }
 
     if (item) {
-        const book = books.find(b => b.id === item?.bookId);
-        if (book) {
-            setFoundItem({ item, book });
-            setCheckoutMessage(null);
-        }
+        setFoundItem(item);
+        setCheckoutMessage(null);
     } else {
         setCheckoutMessage({ type: 'error', text: 'Item not found in inventory' });
         setFoundItem(null);
@@ -55,39 +49,30 @@ const Loans: React.FC = () => {
   const executeCheckout = async () => {
     if (!foundUser || !foundItem) return;
 
-    if (foundItem.item.status !== ItemStatus.AVAILABLE) {
-        setCheckoutMessage({ type: 'error', text: `Item is currently ${foundItem.item.status}` });
+    if (foundItem.currentStatus !== 'Available') {
+        setCheckoutMessage({ type: 'error', text: `Item is currently ${foundItem.currentStatus}` });
         return;
     }
 
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 14); // 2 week loan
-
-    const newLoan: Loan = {
-        id: `l${Date.now()}`,
-        itemId: foundItem.item.id,
-        userId: foundUser.id,
-        loanDate: new Date().toISOString(),
-        dueDate: dueDate.toISOString(),
-        status: LoanStatus.CURRENT
-    };
-
-    await db.createLoan(newLoan);
-    setCheckoutMessage({ type: 'success', text: 'Checkout successful!' });
-    
-    // Reset item but keep user for speed
-    setFoundItem(null);
-    setItemInput('');
+    try {
+        await db.checkout(foundUser.userId, foundItem.rfidTagId);
+        setCheckoutMessage({ type: 'success', text: 'Checkout successful!' });
+        
+        // Reset item but keep user for speed
+        setFoundItem(null);
+        setItemInput('');
+    } catch (e: any) {
+        setCheckoutMessage({ type: 'error', text: e.message || 'Checkout failed' });
+    }
   };
 
   const executeReturn = async () => {
-      // Find item by barcode or rfid
-      const [items, tags, loans] = await Promise.all([db.getItems(), db.getRFIDTags(), db.getLoans()]);
+      // Find item by rfid
+      const items = await db.getItems();
       
-      let item = items.find(i => i.uniqueBarcode === returnInput);
+      let item = items.find(i => i.rfidTagId === returnInput);
       if (!item) {
-          const tag = tags.find(t => t.tagValue === returnInput);
-          if (tag && tag.itemId) item = items.find(i => i.id === tag.itemId);
+          item = items.find(i => i.itemId.toString() === returnInput);
       }
 
       if (!item) {
@@ -95,16 +80,17 @@ const Loans: React.FC = () => {
           return;
       }
 
-      const activeLoan = loans.find(l => l.itemId === item?.id && (l.status === 'CURRENT' || l.status === 'OVERDUE'));
-      
-      if (!activeLoan) {
-          setReturnMessage({ type: 'error', text: 'Item is not currently on loan' });
-          return;
+      try {
+        const res = await db.returnItem(item.rfidTagId);
+        let msg = `Item returned successfully.`;
+        if (res.fine) {
+            msg += ` Fine Issued: $${res.fine.amount}`;
+        }
+        setReturnMessage({ type: 'success', text: msg });
+        setReturnInput('');
+      } catch (e: any) {
+        setReturnMessage({ type: 'error', text: e.message || 'Return failed' });
       }
-
-      await db.returnLoan(activeLoan.id);
-      setReturnMessage({ type: 'success', text: `Item returned successfully.` });
-      setReturnInput('');
   };
 
   return (
@@ -140,7 +126,7 @@ const Loans: React.FC = () => {
                                 onChange={e => setUserIdInput(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && handleUserLookup()}
                                 type="text" 
-                                placeholder="Enter Username or Student ID" 
+                                placeholder="Enter Username or SIS ID" 
                                 className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
                             />
                             {foundUser ? (
@@ -154,7 +140,7 @@ const Loans: React.FC = () => {
                                 <div className="p-2 bg-white rounded-full"><UserIcon className="w-5 h-5 text-indigo-600" /></div>
                                 <div>
                                     <p className="font-semibold text-indigo-900">{foundUser.firstName} {foundUser.lastName}</p>
-                                    <p className="text-xs text-indigo-600">{foundUser.role} • {foundUser.studentId}</p>
+                                    <p className="text-xs text-indigo-600">{foundUser.email} • {foundUser.sisId}</p>
                                 </div>
                             </div>
                         )}
@@ -171,7 +157,7 @@ const Loans: React.FC = () => {
                                     onChange={e => setItemInput(e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && handleItemLookup()}
                                     type="text" 
-                                    placeholder="Scan Barcode or RFID Tag" 
+                                    placeholder="Scan RFID Tag" 
                                     className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
                                 />
                                 <button onClick={handleItemLookup} className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">Find</button>
@@ -184,18 +170,18 @@ const Loans: React.FC = () => {
                                             <BookOpen className="w-8 h-8 text-slate-700" />
                                         </div>
                                         <div className="flex-1">
-                                            <h4 className="font-bold text-slate-900">{foundItem.book.title}</h4>
-                                            <p className="text-sm text-slate-600">{foundItem.book.author}</p>
+                                            <h4 className="font-bold text-slate-900">{foundItem.title}</h4>
+                                            <p className="text-sm text-slate-600">{foundItem.author}</p>
                                             <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                                                <span className="font-mono bg-white px-2 py-1 rounded border">BC: {foundItem.item.uniqueBarcode}</span>
-                                                <span className={`px-2 py-1 rounded font-medium ${foundItem.item.status === 'AVAILABLE' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                    {foundItem.item.status}
+                                                <span className="font-mono bg-white px-2 py-1 rounded border">RFID: {foundItem.rfidTagId}</span>
+                                                <span className={`px-2 py-1 rounded font-medium ${foundItem.currentStatus === 'Available' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                                    {foundItem.currentStatus}
                                                 </span>
                                             </div>
                                         </div>
                                         <button 
                                             onClick={executeCheckout}
-                                            disabled={foundItem.item.status !== ItemStatus.AVAILABLE}
+                                            disabled={foundItem.currentStatus !== 'Available'}
                                             className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg shadow-md transition-all"
                                         >
                                             Checkout
@@ -227,7 +213,7 @@ const Loans: React.FC = () => {
                             onChange={e => setReturnInput(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && executeReturn()}
                             type="text" 
-                            placeholder="Scan Barcode or RFID Tag" 
+                            placeholder="Scan RFID Tag" 
                             className="w-full px-4 py-3 text-lg border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-center font-mono"
                         />
                     </div>

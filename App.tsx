@@ -1,13 +1,14 @@
+
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Books from './pages/Books';
-import Items from './pages/Items';
-import Loans from './pages/Loans';
+import Catalog from './pages/Catalog';
+import Circulation from './pages/Circulation';
 import Users from './pages/Users';
+import Reports from './pages/Reports';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, isLoading } = useAuth();
@@ -21,10 +22,10 @@ const AppRoutes = () => {
         <Routes>
             <Route path="/" element={<Login />} />
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/books" element={<ProtectedRoute><Books /></ProtectedRoute>} />
-            <Route path="/items" element={<ProtectedRoute><Items /></ProtectedRoute>} />
-            <Route path="/loans" element={<ProtectedRoute><Loans /></ProtectedRoute>} />
+            <Route path="/catalog" element={<ProtectedRoute><Catalog /></ProtectedRoute>} />
+            <Route path="/circulation" element={<ProtectedRoute><Circulation /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
         </Routes>
     );
 }

@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../services/storage';
-import { Book, CreateBookDto } from '../types';
+import { Item } from '../types';
 import { Plus, Search, Book as BookIcon } from 'lucide-react';
 
 const Books: React.FC = () => {
-  const [books, setBooks] = useState<Book[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Form State
-  const [newBook, setNewBook] = useState<CreateBookDto>({
-    isbn: '', title: '', author: '', publisher: '', year: new Date().getFullYear(), genre: '', description: ''
+  const [newItem, setNewItem] = useState<Partial<Item>>({
+    isbn: '', title: '', author: '', publisher: '', publicationYear: new Date().getFullYear(), description: '', mediaTypeId: 1, currentStatus: 'Available'
   });
 
   useEffect(() => {
@@ -18,22 +18,22 @@ const Books: React.FC = () => {
   }, []);
 
   const loadBooks = async () => {
-    const data = await db.getBooks();
-    setBooks(data);
+    const data = await db.getItems();
+    setItems(data);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    await db.createBook({ ...newBook, id: `b${Date.now()}` });
+    await db.createItem(newItem);
     setIsModalOpen(false);
-    setNewBook({ isbn: '', title: '', author: '', publisher: '', year: new Date().getFullYear(), genre: '', description: '' });
+    setNewItem({ isbn: '', title: '', author: '', publisher: '', publicationYear: new Date().getFullYear(), description: '', mediaTypeId: 1, currentStatus: 'Available' });
     loadBooks();
   };
 
-  const filteredBooks = books.filter(b => 
+  const filteredBooks = items.filter(b => 
     b.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    b.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    b.isbn.includes(searchTerm)
+    (b.author && b.author.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (b.isbn && b.isbn.includes(searchTerm))
   );
 
   return (
@@ -41,7 +41,7 @@ const Books: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div>
            <h2 className="text-2xl font-bold text-slate-800">Book Catalog</h2>
-           <p className="text-slate-500 text-sm">Manage master data for book titles</p>
+           <p className="text-slate-500 text-sm">Manage items</p>
         </div>
         
         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -59,7 +59,7 @@ const Books: React.FC = () => {
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
-            <Plus className="w-4 h-4" /> Add Book
+            <Plus className="w-4 h-4" /> Add Item
           </button>
         </div>
       </div>
@@ -72,12 +72,12 @@ const Books: React.FC = () => {
               <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Author</th>
               <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Publisher</th>
               <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Year</th>
-              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Genre</th>
+              <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filteredBooks.map((book) => (
-              <tr key={book.id} className="hover:bg-slate-50 transition-colors">
+              <tr key={book.itemId} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-start gap-3">
                     <div className="p-2 bg-indigo-50 text-indigo-600 rounded-md">
@@ -91,10 +91,10 @@ const Books: React.FC = () => {
                 </td>
                 <td className="px-6 py-4 text-sm text-slate-600">{book.author}</td>
                 <td className="px-6 py-4 text-sm text-slate-600">{book.publisher}</td>
-                <td className="px-6 py-4 text-sm text-slate-600">{book.year}</td>
+                <td className="px-6 py-4 text-sm text-slate-600">{book.publicationYear}</td>
                 <td className="px-6 py-4">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
-                        {book.genre}
+                        {book.currentStatus}
                     </span>
                 </td>
               </tr>
@@ -102,7 +102,7 @@ const Books: React.FC = () => {
             {filteredBooks.length === 0 && (
                 <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                        No books found matching your search.
+                        No items found matching your search.
                     </td>
                 </tr>
             )}
@@ -115,45 +115,45 @@ const Books: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                <h3 className="font-bold text-lg text-slate-800">Add New Book</h3>
+                <h3 className="font-bold text-lg text-slate-800">Add New Item</h3>
                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600">&times;</button>
             </div>
             <form onSubmit={handleCreate} className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">ISBN</label>
-                        <input required className="w-full px-3 py-2 border rounded-lg text-sm" value={newBook.isbn} onChange={e => setNewBook({...newBook, isbn: e.target.value})} />
+                        <input className="w-full px-3 py-2 border rounded-lg text-sm" value={newItem.isbn} onChange={e => setNewItem({...newItem, isbn: e.target.value})} />
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">Publication Year</label>
-                        <input type="number" required className="w-full px-3 py-2 border rounded-lg text-sm" value={newBook.year} onChange={e => setNewBook({...newBook, year: parseInt(e.target.value)})} />
+                        <input type="number" className="w-full px-3 py-2 border rounded-lg text-sm" value={newItem.publicationYear} onChange={e => setNewItem({...newItem, publicationYear: parseInt(e.target.value)})} />
                     </div>
                 </div>
                 <div>
                     <label className="block text-xs font-medium text-slate-700 mb-1">Title</label>
-                    <input required className="w-full px-3 py-2 border rounded-lg text-sm" value={newBook.title} onChange={e => setNewBook({...newBook, title: e.target.value})} />
+                    <input required className="w-full px-3 py-2 border rounded-lg text-sm" value={newItem.title} onChange={e => setNewItem({...newItem, title: e.target.value})} />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">Author</label>
-                        <input required className="w-full px-3 py-2 border rounded-lg text-sm" value={newBook.author} onChange={e => setNewBook({...newBook, author: e.target.value})} />
+                        <input className="w-full px-3 py-2 border rounded-lg text-sm" value={newItem.author} onChange={e => setNewItem({...newItem, author: e.target.value})} />
                     </div>
                     <div>
                         <label className="block text-xs font-medium text-slate-700 mb-1">Publisher</label>
-                        <input required className="w-full px-3 py-2 border rounded-lg text-sm" value={newBook.publisher} onChange={e => setNewBook({...newBook, publisher: e.target.value})} />
+                        <input className="w-full px-3 py-2 border rounded-lg text-sm" value={newItem.publisher} onChange={e => setNewItem({...newItem, publisher: e.target.value})} />
                     </div>
                 </div>
                 <div>
-                     <label className="block text-xs font-medium text-slate-700 mb-1">Genre</label>
-                     <input required className="w-full px-3 py-2 border rounded-lg text-sm" value={newBook.genre} onChange={e => setNewBook({...newBook, genre: e.target.value})} />
+                     <label className="block text-xs font-medium text-slate-700 mb-1">RFID</label>
+                     <input required className="w-full px-3 py-2 border rounded-lg text-sm" value={newItem.rfidTagId} onChange={e => setNewItem({...newItem, rfidTagId: e.target.value})} />
                 </div>
                 <div>
                      <label className="block text-xs font-medium text-slate-700 mb-1">Description</label>
-                     <textarea className="w-full px-3 py-2 border rounded-lg text-sm" rows={3} value={newBook.description} onChange={e => setNewBook({...newBook, description: e.target.value})} />
+                     <textarea className="w-full px-3 py-2 border rounded-lg text-sm" rows={3} value={newItem.description} onChange={e => setNewItem({...newItem, description: e.target.value})} />
                 </div>
                 <div className="pt-4 flex justify-end gap-3">
                     <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
-                    <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg">Create Book</button>
+                    <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg">Create Item</button>
                 </div>
             </form>
           </div>

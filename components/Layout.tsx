@@ -1,8 +1,8 @@
+
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { LayoutDashboard, Users, BookOpen, Barcode, ArrowLeftRight, LogOut, Library } from 'lucide-react';
-import { UserRole } from '../types';
+import { LayoutDashboard, Users, BookOpen, ArrowLeftRight, LogOut, Library, FileBarChart } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -20,12 +20,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const navItems = [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-    { label: 'Books Catalog', path: '/books', icon: BookOpen },
-    { label: 'Inventory Items', path: '/items', icon: Barcode },
-    { label: 'Circulation / Loans', path: '/loans', icon: ArrowLeftRight },
+    { label: 'Cataloging', path: '/catalog', icon: BookOpen },
+    { label: 'Circulation', path: '/circulation', icon: ArrowLeftRight },
+    { label: 'Reports', path: '/reports', icon: FileBarChart },
   ];
 
-  if (user?.role === UserRole.ADMIN) {
+  // Assuming userTypeId 1 is Admin
+  if (user?.userTypeId === 1) {
     navItems.push({ label: 'User Management', path: '/users', icon: Users });
   }
 
@@ -39,7 +40,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
           <div>
             <h1 className="font-bold text-lg tracking-wide">LIBRIS</h1>
-            <p className="text-xs text-indigo-300">RFID System</p>
+            <p className="text-xs text-indigo-300">Core Functions</p>
           </div>
         </div>
 
@@ -71,7 +72,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             </div>
             <div className="overflow-hidden">
               <p className="text-sm font-medium truncate">{user?.firstName} {user?.lastName}</p>
-              <p className="text-xs text-indigo-300 truncate">{user?.role}</p>
+              <p className="text-xs text-indigo-300 truncate">
+                 {user?.userTypeId === 1 ? 'Admin' : 'Staff'}
+              </p>
             </div>
           </div>
           <button

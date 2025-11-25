@@ -1,70 +1,84 @@
-export enum UserRole {
-  ADMIN = 'ADMIN',
-  LIBRARIAN = 'LIBRARIAN',
-  STUDENT = 'STUDENT',
+
+export interface MediaType {
+  mediaTypeId: number;
+  typeName: string;
+}
+
+export interface UserType {
+  userTypeId: number;
+  typeName: string;
+  description: string;
+  permissionsJson: {
+    canManageUsers: boolean;
+    canManageItems: boolean;
+    canManageCirculation: boolean;
+    canViewReports: boolean;
+  };
 }
 
 export interface User {
-  id: string;
+  userId: number;
+  sisId?: string;
   username: string;
+  passwordHash?: string; // in real app, don't send to frontend
+  email: string;
   firstName: string;
   lastName: string;
-  email: string;
-  role: UserRole;
-  studentId?: string; // or staffId
-}
-
-export interface Book {
-  id: string;
-  isbn: string;
-  title: string;
-  author: string;
-  publisher: string;
-  year: number;
-  genre: string;
-  description: string;
-}
-
-export enum ItemStatus {
-  AVAILABLE = 'AVAILABLE',
-  ON_LOAN = 'ON_LOAN',
-  LOST = 'LOST',
-  DAMAGED = 'DAMAGED',
+  phoneNumber?: string;
+  userTypeId: number;
+  department?: string;
+  dateRegistered: string;
+  lastLogin?: string;
+  status: 'Active' | 'Inactive' | 'Suspended';
 }
 
 export interface Item {
-  id: string;
-  bookId: string;
-  uniqueBarcode: string;
-  rfidTagId?: string; // ID of the linked tag
-  status: ItemStatus;
-  acquisitionDate: string;
+  itemId: number;
+  rfidTagId: string;
+  isbn?: string;
+  title: string;
+  author?: string;
+  publisher?: string;
+  publicationYear?: number;
+  description?: string;
+  mediaTypeId: number;
+  marc21Data?: any; // JSONB
+  currentStatus: 'Available' | 'Checked Out' | 'Reserved' | 'Lost' | 'Damaged';
+  location?: string;
+  coverImageUrl?: string;
+  dateAdded: string;
 }
 
-export interface RFIDTag {
-  id: string;
-  tagValue: string; // The raw value read from the chip
-  itemId?: string; // Linked item
-  registeredAt: string;
-}
-
-export enum LoanStatus {
-  CURRENT = 'CURRENT',
-  RETURNED = 'RETURNED',
-  OVERDUE = 'OVERDUE',
-}
-
-export interface Loan {
-  id: string;
-  itemId: string;
-  userId: string;
-  loanDate: string;
+export interface Circulation {
+  circulationId: number;
+  itemId: number;
+  userId: number;
+  checkoutDate: string;
   dueDate: string;
   returnDate?: string;
-  status: LoanStatus;
+  fineAmount: number;
+  fineStatus: 'Pending' | 'Paid' | 'Waived';
+  renewedCount: number;
+  status: 'Checked Out' | 'Returned' | 'Overdue';
 }
 
-// DTOs for UI forms
-export interface CreateBookDto extends Omit<Book, 'id'> {}
-export interface CreateUserDto extends Omit<User, 'id'> { password?: string }
-export interface CreateItemDto { bookId: string; uniqueBarcode: string; }
+export interface Fine {
+  fineId: number;
+  userId: number;
+  itemId?: number;
+  circulationId?: number;
+  fineDate: string;
+  amount: number;
+  reason?: string;
+  paidDate?: string;
+  status: 'Unpaid' | 'Paid' | 'Waived';
+}
+
+export interface Reservation {
+  reservationId: number;
+  itemId: number;
+  userId: number;
+  reservationDate: string;
+  expiryDate?: string;
+  status: 'Pending' | 'Ready for Pickup' | 'Cancelled' | 'Fulfilled';
+}
